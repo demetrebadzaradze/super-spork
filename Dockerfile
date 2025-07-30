@@ -2,10 +2,10 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-# Install system dependencies for zeroc-ice
 RUN apt-get update && apt-get install -y \
     build-essential \
     libssl-dev \
+    libbz2-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements and install
