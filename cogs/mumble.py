@@ -32,7 +32,7 @@ class MumbleCog(commands.Cog):
             callback_obj = self.adapter.addWithUUID(callback)
             self.adapter.activate()
 
-            base = self.communicator.stringToProxy("Meta:tcp -h 127.0.0.1 -p 6502 -t 60000")
+            base = self.communicator.stringToProxy("Meta:tcp -h mumble-server -p 6502 -t 60000")
             meta = MumbleServer.MetaPrx.checkedCast(base)
             if not meta:
                 print("Failed to connect to Mumble Meta")
@@ -69,7 +69,7 @@ class ServerCallbackI(MumbleServer.ServerCallback):
     def textMessage(self, message, current=None):
         sender_id = message.actor
         server = current.adapter.getCommunicator().stringToProxy(
-            f"Server/1:tcp -h 127.0.0.1 -p 6502 -t 60000"
+            f"Server/1:tcp -h mumble-server -p 6502 -t 60000"
         )
         server = MumbleServer.ServerPrx.checkedCast(server)
         sender = server.getUser(sender_id, current.ctx)
