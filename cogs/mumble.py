@@ -4,14 +4,17 @@ import discord
 from discord.ext import commands, tasks
 import asyncio
 import os
+import logging
+
+logging.basicConfig(filename='/app/mumble_bot.log', level=logging.INFO)
 
 class MumbleCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.communicator = None
         self.adapter = None
-        self.channel_id = int(os.getenv('DISCORD_CHANNEL_ID'))  # Discord channel ID
-        self.ice_password = os.getenv('MUMBLE_ICE_PASSWORD', 'password')  # Ice secret
+        self.channel_id = int(os.getenv('DISCORD_CHANNEL_ID'))
+        self.ice_password = os.getenv('MUMBLE_ICE_PASSWORD', 'password')
         self.start_ice.start()
 
     def cog_unload(self):
@@ -26,7 +29,7 @@ class MumbleCog(commands.Cog):
         try:
             self.communicator = Ice.initialize()
             self.adapter = self.communicator.createObjectAdapterWithEndpoints(
-                "CallbackAdapter", "tcp -h 127.0.0.1"
+                "CallbackAdapter", "tcp -h 0.0.0.0"
             )
             callback = ServerCallbackI(self.bot, self.channel_id)
             callback_obj = self.adapter.addWithUUID(callback)
@@ -35,19 +38,19 @@ class MumbleCog(commands.Cog):
             base = self.communicator.stringToProxy("Meta:tcp -h mumble-server -p 6502 -t 60000")
             meta = MumbleServer.MetaPrx.checkedCast(base)
             if not meta:
-                print("Failed to connect to Mumble Meta")
+                logging.error("Failed to connect to Mumble Meta")
                 return
 
             context = {"secret": self.ice_password}
-            server = meta.getServer(1, context)  # Server ID 1
+            server = meta.getServer(1, context)
             if not server:
-                print("Failed to get Mumble server")
+                logging.error("Failed to get Mumble server")
                 return
 
             server.addCallback(callback_obj, context)
-            print("Mumble callback registered successfully")
+            logging.info("Mumble callback registered successfully")
         except Exception as e:
-            print(f"Mumble setup error: {e}")
+            logging.error(f"Mumble setup error: {e}")
 
     @start_ice.before_loop
     async def before_start_ice(self):
@@ -59,32 +62,37 @@ class ServerCallbackI(MumbleServer.ServerCallback):
         self.channel_id = channel_id
 
     async def send_to_discord(self, message, sender_name, channel_name):
-        channel = self.bot.get_channel(self.channel_id)
-        if channel:
-            formatted_message = f"**{sender_name}** in **{channel_name}**: {message}"
-            await channel.send(formatted_message)
-        else:
-            print(f"Discord channel {self.channel_id} not found")
+        try:
+            channel = self.bot.get_channel(self.channel_id)
+            if channel:
+                formatted_message = f"**{sender_name}** in **{channel_name}**: {message}"
+                await channel.send(formatted_message)
+            else:
+                logging.error(f"Discord channel {self.channel_id} not found")
+        except Exception as e:
+            logging.error(f"Error sending to Discord: {e}")
 
     def textMessage(self, message, current=None):
-        sender_id = message.actor
-        server = current.adapter.getCommunicator().stringToProxy(
-            f"Server/1:tcp -h mumble-server -p 6502 -t 60000"
-        )
-        server = MumbleServer.ServerPrx.checkedCast(server)
-        sender = server.getUser(sender_id, current.ctx)
-        sender_name = sender.name if sender else "Unknown"
+        try:
+            sender_id = message.actor
+            server = current.adapter.getCommunicator().stringToProxy(
+                f"Server/1:tcp -h mumble-server -p 6502 -t 60000"
+            )
+            server = MumbleServer.ServerPrx.checkedCast(server)
+            sender = server.getUser(sender_id, current.ctx)
+            sender_name = sender.name if sender else "Unknown"
 
-        channel_id = message.channelId[0] if message.channelId else -1
-        channel = server.getChannel(channel_id, current.ctx) if channel_id != -1 else None
-        channel_name = channel.name if channel else "Unknown"
+            channel_id = message.channelId[0] if message.channelId else -1
+            channel = server.getChannel(channel_id, current.ctx) if channel_id != -1 else None
+            channel_name = channel.name if channel else "Unknown"
 
-        asyncio.run_coroutine_threadsafe(
-            self.send_to_discord(message.text, sender_name, channel_name),
-            self.bot.loop
-        )
+            asyncio.run_coroutine_threadsafe(
+                self.send_to_discord(message.text, sender_name, channel_name),
+                self.bot.loop
+            )
+        except Exception as e:
+            logging.error(f"Error processing text message: {e}")
 
-    # Implement other callback methods to avoid errors
     def userConnected(self, state, current=None): pass
     def userDisconnected(self, state, current=None): pass
     def userStateChanged(self, state, current=None): pass
