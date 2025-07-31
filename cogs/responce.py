@@ -2,8 +2,12 @@ import discord
 from discord.ext import commands
 from random import choice, randint
 import logging
+import os
 
 # Set up logging
+log_dir = '/app/logs'
+if not os.path.exists(log_dir):
+    os.makedirs(log_dir, mode=0o777)
 logging.basicConfig(
     level=logging.DEBUG,
     format='%(asctime)s %(levelname)s %(message)s',
@@ -21,8 +25,9 @@ class ResponceCog(commands.Cog):
     @commands.command()
     async def hello(self, ctx):
         responses = ['hello', 'hi', 'heyy', 'yooooo', 'whats up']
-        await ctx.send(choice(responses))
-        logging.info(f"Sent response: {ctx.message.content}")
+        response = choice(responses)
+        await ctx.send(response)
+        logging.info(f"Sent response: {response}")
 
     @commands.command()
     async def gamble(self, ctx):
@@ -37,8 +42,9 @@ class ResponceCog(commands.Cog):
         content = message.content.lower()
         if content in ['hello', 'hi', 'hey']:
             responses = ['hello', 'hi', 'heyy', 'yooooo', 'whats up']
-            await message.channel.send(choice(responses))
-            logging.info(f"Responded to {content} with {responses}")
+            response = choice(responses)
+            await message.channel.send(response)
+            logging.info(f"Responded to {content} with {response}")
         elif content == 'gamble':
             number = randint(1, 6)
             await message.channel.send(f"your number is {number}")
