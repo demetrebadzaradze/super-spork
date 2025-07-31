@@ -133,7 +133,8 @@ class ServerCallbackI(MumbleServer.ServerCallback):
             if not server:
                 logging.error("Failed to get Mumble server proxy")
                 return
-            channel = server.getChannel(channel_id, current.ctx) if channel_id != -1 else None
+            channels = server.getChannels(current.ctx) if channel_id != -1 else {}
+            channel = channels.get(channel_id) if channel_id in channels else None
             channel_name = channel.name if channel else "Unknown"
 
             asyncio.run_coroutine_threadsafe(
