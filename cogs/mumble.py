@@ -125,7 +125,7 @@ class ServerCallbackI(MumbleServer.ServerCallback):
     def _handle_message(self, state, message, current):
         try:
             sender_name = state.name if state else "Unknown"
-            channel_id = message.channelId[0] if message.channelId else -1
+            channel_id = message.channels[0] if message.channels else -1
             server = current.adapter.getCommunicator().stringToProxy(
                 f"Server/1:tcp -h mumble-server -p 6502 -t 60000"
             )
