@@ -10,11 +10,15 @@ import logging
 log_dir = '/app/logs'
 if not os.path.exists(log_dir):
     os.makedirs(log_dir, mode=0o777)
+file_handler = logging.FileHandler('/app/logs/mumble_bot.log')
+file_handler.setLevel(logging.DEBUG)
+file_handler.setFormatter(logging.Formatter('%(asctime)s %(levelname)s %(message)s'))
+file_handler.flush = True  # Force flush
 logging.basicConfig(
     level=logging.DEBUG,
     format='%(asctime)s %(levelname)s %(message)s',
     handlers=[
-        logging.FileHandler('/app/logs/mumble_bot.log'),
+        file_handler,
         logging.StreamHandler()
     ]
 )
@@ -58,7 +62,6 @@ class MumbleCog(commands.Cog):
             )
             callback = ServerCallbackI(self.bot, self.channel_id)
             callback_obj = self.adapter.add(callback, self.communicator.stringToIdentity("ServerCallback"))
-            # Explicitly cast to ServerCallbackPrx
             callback_proxy = MumbleServer.ServerCallbackPrx.checkedCast(callback_obj)
             if not callback_proxy:
                 logging.error("Failed to cast callback_obj to ServerCallbackPrx")
@@ -111,12 +114,12 @@ class ServerCallbackI(MumbleServer.ServerCallback):
 
     def textMessage(self, message, current=None):
         try:
-            logging.debug(f"Received Mumble message: {message.text}")
+            logging.debug(f"Received Mumble textMessage: {message.text}")
             sender_id = message.actor
             server = current.adapter.getCommunicator().stringToProxy(
                 f"Server/1:tcp -h mumble-server -p 6502 -t 60000"
             )
-            server = MumbleServer.ServerCallbackPrx.checkedCast(server)
+            server = MumbleServer.ServerPrx.checkedCast(server)
             sender = server.getUser(sender_id, current.ctx)
             sender_name = sender.name if sender else "Unknown"
 
@@ -129,7 +132,29 @@ class ServerCallbackI(MumbleServer.ServerCallback):
                 self.bot.loop
             )
         except Exception as e:
-            logging.error(f"Error processing text message: {e}", exc_info=True)
+            logging.error(f"Error processing textMessage: {e}", exc_info=True)
+
+    def userTextMessage(self, message, current=None):
+        try:
+            logging.debug(f"Received Mumble userTextMessage: {message.text}")
+            sender_id = message.actor
+            server = current.adapter.getCommunicator().stringToProxy(
+                f"Server/1:tcp -h mumble-server -p 6502 -t 60000"
+            )
+            server = MumbleServer.ServerPrx.checkedCast(server)
+            sender = server.getUser(sender_id, current.ctx)
+            sender_name = sender.name if sender else "Unknown"
+
+            channel_id = message.channelId[0] if message.channelId else -1
+            channel = server.getChannel(channel_id, current.ctx) if channel_id != -1 else None
+            channel_name = channel.name if channel else "Unknown"
+
+            asyncio.run_coroutine_threadsafe(
+                self.send_to_discord(message.text, sender_name, channel_name),
+                self.bot.loop
+            )
+        except Exception as e:
+            logging.error(f"Error processing userTextMessage: {e}", exc_info=True)
 
     def userConnected(self, state, current=None): logging.debug(f"User connected: {state.name}")
     def userDisconnected(self, state, current=None): logging.debug(f"User disconnected: {state.name}")
