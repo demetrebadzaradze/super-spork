@@ -1,65 +1,27 @@
-Mumble-Discord Bridge Bot
+# Super-Spork
 
-This project provides a bot that bridges text messages between a Mumble voice server (version 1.5.735) and a Discord server. The bot forwards messages sent in Mumble channels to a specified Discord channel and allows sending messages from Discord to the Mumble server's root channel using a command.
+This project provides a bot that forwards text messages from Mumble server (version 1.5.735) to a Discord server. The bot forwards messages sent in Mumble channels to a specified Discord channel.
 
-Features
+# Features
+- Mumble-to-Discord: Forwards messages from Mumble channels to a Discord channel, including the sender's name and channel name (e.g., **TG_3W3p** in **Minecraft**: Hello from Mumble!).
+- Basic Discord Commands: Responds to simple commands like ?hello or hi with responses like yooooo or whats up (via the responce.py cog).
 
+# Prerequisites
+- System: Ubuntu 24.04.1 LTS (or compatible Linux distribution).
+- Docker: Docker and Docker Compose installed (`sudo apt install docker.io docker-compose`).
+- Mumble Server: Version 1.5.735 running in a Docker container.
+- Python: Version 3.12 (included in the bot's Docker image).
+- Dependencies: Listed in requirements.txt (e.g., `discord.py`, `PyNaCl` for voice support, `zeroc-ice` for Ice communication).
+- Discord Bot Token: Obtain from the Discord Developer Portal.
+- Mumble Ice Password: Set in the Mumble server configuration.
+- Discord Channel ID: The ID of the Discord channel where Mumble messages are forwarded (e.g., `1349702376763818087`).
 
-
-
-
-Mumble-to-Discord: Forwards messages from Mumble channels to a Discord channel, including the sender's name and channel name (e.g., **TG_3W3p** in **Minecraft**: Hello from Mumble!).
-
-
-
-Discord-to-Mumble: Sends messages from Discord to the Mumble root channel using the ?mumble_send <message> command.
-
-
-
-Basic Discord Commands: Responds to simple commands like ?hello or hi with responses like yooooo or whats up (via the responce.py cog).
-
-Prerequisites
-
-
-
-
-
-System: Ubuntu 24.04.1 LTS (or compatible Linux distribution).
-
-
-
-Docker: Docker and Docker Compose installed (sudo apt install docker.io docker-compose).
-
-
-
-Mumble Server: Version 1.5.735 running in a Docker container.
-
-
-
-Python: Version 3.12 (included in the bot's Docker image).
-
-
-
-Dependencies: Listed in requirements.txt (e.g., discord.py, PyNaCl for voice support, zeroc-ice for Ice communication).
-
-
-
-Discord Bot Token: Obtain from the Discord Developer Portal.
-
-
-
-Mumble Ice Password: Set in the Mumble server configuration (default: password).
-
-
-
-Discord Channel ID: The ID of the Discord channel where Mumble messages are forwarded (e.g., 1349702376763818087).
-
-Setup Instructions
-
+# Setup Instructions
 Directory Structure
-
-/mnt/silver-64/opt/mumble/
+``` plain
+├── .env
 ├── docker-compose.yml
+├── data/
 ├── logs/
 └── super-spork/
     ├── cogs/
@@ -69,6 +31,14 @@ Directory Structure
     ├── MumbleServer_ice.py
     ├── main.py
     └── requirements.txt
+```
+1. clone the `super-spork` directory where  mumble server compose file is
+  go to the corect direvctory(e.g `cd /mnt/silver-64/opt/mumble/`) and clone the repo
+  ```bash
+  git clone https://github.com/demetrebadzaradze/super-spork.git
+  ```
+1. configure `.env` file
+
 
 1. Configure the Mumble Server
 
