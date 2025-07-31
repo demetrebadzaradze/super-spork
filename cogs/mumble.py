@@ -13,7 +13,7 @@ if not os.path.exists(log_dir):
 file_handler = logging.FileHandler('/app/logs/mumble_bot.log')
 file_handler.setLevel(logging.DEBUG)
 file_handler.setFormatter(logging.Formatter('%(asctime)s %(levelname)s %(message)s'))
-file_handler.flush = True  # Force flush
+file_handler.flush = True
 logging.basicConfig(
     level=logging.DEBUG,
     format='%(asctime)s %(levelname)s %(message)s',
@@ -23,6 +23,7 @@ logging.basicConfig(
     ]
 )
 logging.debug("Testing mumble log file creation")
+logging.getLogger().handlers[0].flush()
 
 class MumbleCog(commands.Cog):
     def __init__(self, bot):
@@ -95,7 +96,7 @@ class MumbleCog(commands.Cog):
 
 class ServerCallbackI(MumbleServer.ServerCallback):
     def __init__(self, bot, channel_id):
-        MumbleServer.ServerCallback.__init__(self)  # Explicitly call parent constructor
+        MumbleServer.ServerCallback.__init__(self)
         self.bot = bot
         self.channel_id = channel_id
         logging.debug("ServerCallbackI initialized")
@@ -107,41 +108,30 @@ class ServerCallbackI(MumbleServer.ServerCallback):
                 formatted_message = f"**{sender_name}** in **{channel_name}**: {message}"
                 await channel.send(formatted_message)
                 logging.info(f"Sent to Discord: {formatted_message}")
+                logging.getLogger().handlers[0].flush()
             else:
                 logging.error(f"Discord channel {self.channel_id} not found")
         except Exception as e:
             logging.error(f"Error sending to Discord: {e}", exc_info=True)
 
     def textMessage(self, message, current=None):
-        try:
-            logging.debug(f"Received Mumble textMessage: {message.text}")
-            sender_id = message.actor
-            server = current.adapter.getCommunicator().stringToProxy(
-                f"Server/1:tcp -h mumble-server -p 6502 -t 60000"
-            )
-            server = MumbleServer.ServerPrx.checkedCast(server)
-            sender = server.getUser(sender_id, current.ctx)
-            sender_name = sender.name if sender else "Unknown"
-
-            channel_id = message.channelId[0] if message.channelId else -1
-            channel = server.getChannel(channel_id, current.ctx) if channel_id != -1 else None
-            channel_name = channel.name if channel else "Unknown"
-
-            asyncio.run_coroutine_threadsafe(
-                self.send_to_discord(message.text, sender_name, channel_name),
-                self.bot.loop
-            )
-        except Exception as e:
-            logging.error(f"Error processing textMessage: {e}", exc_info=True)
+        logging.debug(f"Received Mumble textMessage: {message.text}")
+        self._handle_message(message, current)
 
     def userTextMessage(self, message, current=None):
+        logging.debug(f"Received Mumble userTextMessage: {message.text}")
+        self._handle_message(message, current)
+
+    def _handle_message(self, message, current):
         try:
-            logging.debug(f"Received Mumble userTextMessage: {message.text}")
             sender_id = message.actor
             server = current.adapter.getCommunicator().stringToProxy(
                 f"Server/1:tcp -h mumble-server -p 6502 -t 60000"
             )
             server = MumbleServer.ServerPrx.checkedCast(server)
+            if not server:
+                logging.error("Failed to get Mumble server proxy")
+                return
             sender = server.getUser(sender_id, current.ctx)
             sender_name = sender.name if sender else "Unknown"
 
@@ -154,7 +144,7 @@ class ServerCallbackI(MumbleServer.ServerCallback):
                 self.bot.loop
             )
         except Exception as e:
-            logging.error(f"Error processing userTextMessage: {e}", exc_info=True)
+            logging.error(f"Error processing message: {e}", exc_info=True)
 
     def userConnected(self, state, current=None): logging.debug(f"User connected: {state.name}")
     def userDisconnected(self, state, current=None): logging.debug(f"User disconnected: {state.name}")
