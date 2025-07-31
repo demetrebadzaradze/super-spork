@@ -116,15 +116,16 @@ class ServerCallbackI(MumbleServer.ServerCallback):
 
     def textMessage(self, message, current=None):
         logging.debug(f"Received Mumble textMessage: {message.text}")
-        self._handle_message(message, current)
+        self._handle_message(None, message, current)
 
-    def userTextMessage(self, message, current=None):
-        logging.debug(f"Received Mumble userTextMessage: {message.text}")
-        self._handle_message(message, current)
+    def userTextMessage(self, state, message, current=None):
+        logging.debug(f"Received Mumble userTextMessage: {message.text}, from user: {state.name}")
+        self._handle_message(state, message, current)
 
-    def _handle_message(self, message, current):
+    def _handle_message(self, state, message, current):
         try:
-            sender_id = message.actor
+            sender_name = state.name if state else "Unknown"
+            channel_id = message.channelId[0] if message.channelId else -1
             server = current.adapter.getCommunicator().stringToProxy(
                 f"Server/1:tcp -h mumble-server -p 6502 -t 60000"
             )
@@ -132,10 +133,6 @@ class ServerCallbackI(MumbleServer.ServerCallback):
             if not server:
                 logging.error("Failed to get Mumble server proxy")
                 return
-            sender = server.getUser(sender_id, current.ctx)
-            sender_name = sender.name if sender else "Unknown"
-
-            channel_id = message.channelId[0] if message.channelId else -1
             channel = server.getChannel(channel_id, current.ctx) if channel_id != -1 else None
             channel_name = channel.name if channel else "Unknown"
 
