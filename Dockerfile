@@ -6,6 +6,7 @@ RUN apt-get update && apt-get install -y \
     build-essential \
     libssl-dev \
     libbz2-dev \
+    netcat-openbsd \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements and install

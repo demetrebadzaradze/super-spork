@@ -9,7 +9,7 @@ import logging
 # Set up logging to both file and stderr
 log_dir = '/app/logs'
 if not os.path.exists(log_dir):
-    os.makedirs(log_dir)
+    os.makedirs(log_dir, mode=0o777)
 logging.basicConfig(
     level=logging.DEBUG,
     format='%(asctime)s %(levelname)s %(message)s',
@@ -56,9 +56,10 @@ class MumbleCog(commands.Cog):
                 "CallbackAdapter", "tcp -h 0.0.0.0"
             )
             callback = ServerCallbackI(self.bot, self.channel_id)
-            callback_obj = self.adapter.addWithUUID(callback)
+            callback_obj = self.adapter.add(callback, self.communicator.stringToIdentity("ServerCallback"))
             self.adapter.activate()
-            logging.debug("Ice adapter activated")
+            logging.debug(f"Ice adapter activated, callback object: {callback_obj}")
+            logging.debug(f"Callback object interfaces: {callback_obj.ice_id()}")
 
             base = self.communicator.stringToProxy("Meta:tcp -h mumble-server -p 6502 -t 60000")
             meta = MumbleServer.MetaPrx.checkedCast(base)
@@ -72,6 +73,7 @@ class MumbleCog(commands.Cog):
                 logging.error("Failed to get Mumble server")
                 return
 
+            logging.debug(f"Registering callback with server: {server}")
             server.addCallback(callback_obj, context)
             logging.info("Mumble callback registered successfully")
         except Exception as e:
