@@ -127,7 +127,7 @@ class ServerCallbackI(MumbleServer.ServerCallback):
             sender_name = state.name if state else "Unknown"
             channel_id = message.channels[0] if message.channels else -1
             server = current.adapter.getCommunicator().stringToProxy(
-                f"Server/1:tcp -h mumble-server -p 6502 -t 60000"
+                f"s/1:tcp -h mumble-server -p 6502 -t 60000"
             )
             server = MumbleServer.ServerPrx.checkedCast(server)
             if not server:
