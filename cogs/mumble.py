@@ -6,18 +6,35 @@ import asyncio
 import os
 import logging
 
-logging.basicConfig(filename='/app/mumble_bot.log', level=logging.INFO)
+# Set up logging to both file and stderr
+log_dir = '/app/logs'
+if not os.path.exists(log_dir):
+    os.makedirs(log_dir)
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s %(levelname)s %(message)s',
+    handlers=[
+        logging.FileHandler('/app/logs/mumble_bot.log'),
+        logging.StreamHandler()
+    ]
+)
 
 class MumbleCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.communicator = None
         self.adapter = None
-        self.channel_id = int(os.getenv('DISCORD_CHANNEL_ID'))
+        try:
+            self.channel_id = int(os.getenv('DISCORD_CHANNEL_ID'))
+        except (ValueError, TypeError) as e:
+            logging.error(f"Invalid DISCORD_CHANNEL_ID: {os.getenv('DISCORD_CHANNEL_ID')}, error: {e}")
+            raise
         self.ice_password = os.getenv('MUMBLE_ICE_PASSWORD', 'password')
+        logging.debug("MumbleCog initialized")
         self.start_ice.start()
 
     def cog_unload(self):
+        logging.debug("Unloading MumbleCog")
         self.start_ice.cancel()
         if self.adapter:
             self.adapter.deactivate()
@@ -27,13 +44,19 @@ class MumbleCog(commands.Cog):
     @tasks.loop(count=1)
     async def start_ice(self):
         try:
-            self.communicator = Ice.initialize()
+            logging.debug("Starting Ice communicator")
+            props = Ice.createProperties()
+            props.setProperty("Ice.MessageSizeMax", "1024")
+            props.setProperty("Ice.Trace.Network", "2")
+            props.setProperty("Ice.Trace.Protocol", "1")
+            self.communicator = Ice.initialize(props=props)
             self.adapter = self.communicator.createObjectAdapterWithEndpoints(
                 "CallbackAdapter", "tcp -h 0.0.0.0"
             )
             callback = ServerCallbackI(self.bot, self.channel_id)
             callback_obj = self.adapter.addWithUUID(callback)
             self.adapter.activate()
+            logging.debug("Ice adapter activated")
 
             base = self.communicator.stringToProxy("Meta:tcp -h mumble-server -p 6502 -t 60000")
             meta = MumbleServer.MetaPrx.checkedCast(base)
@@ -50,16 +73,18 @@ class MumbleCog(commands.Cog):
             server.addCallback(callback_obj, context)
             logging.info("Mumble callback registered successfully")
         except Exception as e:
-            logging.error(f"Mumble setup error: {e}")
+            logging.error(f"Mumble setup error: {e}", exc_info=True)
 
     @start_ice.before_loop
     async def before_start_ice(self):
         await self.bot.wait_until_ready()
+        logging.debug("Waiting for bot to be ready")
 
 class ServerCallbackI(MumbleServer.ServerCallback):
     def __init__(self, bot, channel_id):
         self.bot = bot
         self.channel_id = channel_id
+        logging.debug("ServerCallbackI initialized")
 
     async def send_to_discord(self, message, sender_name, channel_name):
         try:
@@ -67,13 +92,15 @@ class ServerCallbackI(MumbleServer.ServerCallback):
             if channel:
                 formatted_message = f"**{sender_name}** in **{channel_name}**: {message}"
                 await channel.send(formatted_message)
+                logging.info(f"Sent to Discord: {formatted_message}")
             else:
                 logging.error(f"Discord channel {self.channel_id} not found")
         except Exception as e:
-            logging.error(f"Error sending to Discord: {e}")
+            logging.error(f"Error sending to Discord: {e}", exc_info=True)
 
     def textMessage(self, message, current=None):
         try:
+            logging.debug(f"Received Mumble message: {message.text}")
             sender_id = message.actor
             server = current.adapter.getCommunicator().stringToProxy(
                 f"Server/1:tcp -h mumble-server -p 6502 -t 60000"
@@ -91,14 +118,14 @@ class ServerCallbackI(MumbleServer.ServerCallback):
                 self.bot.loop
             )
         except Exception as e:
-            logging.error(f"Error processing text message: {e}")
+            logging.error(f"Error processing text message: {e}", exc_info=True)
 
-    def userConnected(self, state, current=None): pass
-    def userDisconnected(self, state, current=None): pass
-    def userStateChanged(self, state, current=None): pass
-    def channelCreated(self, state, current=None): pass
-    def channelRemoved(self, state, current=None): pass
-    def channelStateChanged(self, state, current=None): pass
+    def userConnected(self, state, current=None): logging.debug(f"User connected: {state.name}")
+    def userDisconnected(self, state, current=None): logging.debug(f"User disconnected: {state.name}")
+    def userStateChanged(self, state, current=None): logging.debug(f"User state changed: {state.name}")
+    def channelCreated(self, state, current=None): logging.debug(f"Channel created: {state.name}")
+    def channelRemoved(self, state, current=None): logging.debug(f"Channel removed: {state.name}")
+    def channelStateChanged(self, state, current=None): logging.debug(f"Channel state changed: {state.name}")
 
 async def setup(bot):
     await bot.add_cog(MumbleCog(bot))
