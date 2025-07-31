@@ -35,7 +35,7 @@ async def on_ready():
     logging.info(f'{bot.user} has connected to Discord!')
     try:
         logging.debug("Loading cogs...")
-        await bot.load_extension('cogs.responce')  # Confirmed spelling
+        await bot.load_extension('cogs.responce')
         await bot.load_extension('cogs.mumble')
         logging.info("Cogs loaded successfully")
     except Exception as e:
