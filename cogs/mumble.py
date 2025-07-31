@@ -18,6 +18,7 @@ logging.basicConfig(
         logging.StreamHandler()
     ]
 )
+logging.debug("Testing mumble log file creation")
 
 class MumbleCog(commands.Cog):
     def __init__(self, bot):
@@ -57,9 +58,14 @@ class MumbleCog(commands.Cog):
             )
             callback = ServerCallbackI(self.bot, self.channel_id)
             callback_obj = self.adapter.add(callback, self.communicator.stringToIdentity("ServerCallback"))
+            # Explicitly cast to ServerCallbackPrx
+            callback_proxy = MumbleServer.ServerCallbackPrx.checkedCast(callback_obj)
+            if not callback_proxy:
+                logging.error("Failed to cast callback_obj to ServerCallbackPrx")
+                return
             self.adapter.activate()
-            logging.debug(f"Ice adapter activated, callback object: {callback_obj}")
-            logging.debug(f"Callback object interfaces: {callback_obj.ice_id()}")
+            logging.debug(f"Ice adapter activated, callback proxy: {callback_proxy}")
+            logging.debug(f"Callback proxy interfaces: {callback_proxy.ice_id()}")
 
             base = self.communicator.stringToProxy("Meta:tcp -h mumble-server -p 6502 -t 60000")
             meta = MumbleServer.MetaPrx.checkedCast(base)
@@ -74,7 +80,7 @@ class MumbleCog(commands.Cog):
                 return
 
             logging.debug(f"Registering callback with server: {server}")
-            server.addCallback(callback_obj, context)
+            server.addCallback(callback_proxy, context)
             logging.info("Mumble callback registered successfully")
         except Exception as e:
             logging.error(f"Mumble setup error: {e}", exc_info=True)
@@ -86,6 +92,7 @@ class MumbleCog(commands.Cog):
 
 class ServerCallbackI(MumbleServer.ServerCallback):
     def __init__(self, bot, channel_id):
+        MumbleServer.ServerCallback.__init__(self)  # Explicitly call parent constructor
         self.bot = bot
         self.channel_id = channel_id
         logging.debug("ServerCallbackI initialized")
@@ -109,7 +116,7 @@ class ServerCallbackI(MumbleServer.ServerCallback):
             server = current.adapter.getCommunicator().stringToProxy(
                 f"Server/1:tcp -h mumble-server -p 6502 -t 60000"
             )
-            server = MumbleServer.ServerPrx.checkedCast(server)
+            server = MumbleServer.ServerCallbackPrx.checkedCast(server)
             sender = server.getUser(sender_id, current.ctx)
             sender_name = sender.name if sender else "Unknown"
 
