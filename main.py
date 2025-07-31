@@ -7,7 +7,7 @@ import logging
 # Set up logging to both file and stderr
 log_dir = '/app/logs'
 if not os.path.exists(log_dir):
-    os.makedirs(log_dir)
+    os.makedirs(log_dir, mode=0o777)
 logging.basicConfig(
     level=logging.DEBUG,
     format='%(asctime)s %(levelname)s %(message)s',
