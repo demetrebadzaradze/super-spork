@@ -49,7 +49,9 @@ class MumbleCog(commands.Cog):
             props.setProperty("Ice.MessageSizeMax", "1024")
             props.setProperty("Ice.Trace.Network", "2")
             props.setProperty("Ice.Trace.Protocol", "1")
-            self.communicator = Ice.initialize(props=props)
+            init_data = Ice.InitializationData()
+            init_data.properties = props
+            self.communicator = Ice.initialize(init_data)
             self.adapter = self.communicator.createObjectAdapterWithEndpoints(
                 "CallbackAdapter", "tcp -h 0.0.0.0"
             )
